@@ -1,7 +1,7 @@
 [
   {
 	"version": "1.0.0-b1",
-    "severity": 1,
+    "severity": "1",
     "message": "Remember, this is in BETA!",
   }
 ]
