@@ -1,8 +1,7 @@
-#library('OAuth 2.0 client library');
+library oauth2lib;
 
-#import('dart:html');
-#import('dart:json');
-#import('uri.dart');
+import 'dart:html';
+import 'dart:async';
 
 class AuthError implements Exception {
   String error;
@@ -23,26 +22,26 @@ Future<String> login(String authUrl, String clientId, String redirectUri,
     int windowWidth=800]) {
   if (!addedCallback) {
     addedCallback = true;
-    window.on.message.add((MessageEvent e) {
+    window.onMessage.listen((MessageEvent e) {
       finish(e.data);
-    }, false);
+    });
   }
 
   _lastReqKey = '$clientId=====$scopes';
-  String tokenStr = window.localStorage.$dom_getItem(_lastReqKey);
+  String tokenStr = window.localStorage[_lastReqKey];
   _TokenInfo info = tokenStr == null ? null :
       new _TokenInfo.fromString(tokenStr);
 
   _lastCompleter = new Completer<String>();
   if (info == null || info._expires == null || _expiringSoon(info)) {
     if (_authWindow != null && !_authWindow.closed) {
-      _lastCompleter.completeException(
+      _lastCompleter.completeError(
           new AuthError('Authentication in progress', null, null));
     } else {
-      String encodedClientId = encodeURIComponent(clientId);
-      String encodedRedirectUri = encodeURIComponent(redirectUri);
+      String encodedClientId = Uri.encodeComponent(clientId);
+      String encodedRedirectUri = Uri.encodeComponent(redirectUri);
       String scopesStr = scopes == null ? '' :
-          Strings.join(scopes, scopeDelimiter);
+          scopes.join(scopeDelimiter);
       String url = '$authUrl?client_id=$encodedClientId&redirect_uri='
           + '$encodedRedirectUri&response_type=token&scope=$scopesStr';
 
@@ -51,7 +50,7 @@ Future<String> login(String authUrl, String clientId, String redirectUri,
     }
     return _lastCompleter.future;
   } else {
-    return new Future.immediate(info._accessToken);
+    return new Future.value(info._accessToken);//TODO this might be broken
   }
 }
 
@@ -61,8 +60,8 @@ bool _expiringSoon(_TokenInfo info) {
   } else {
     window.console.log(info._expires);
     window.console.log(info._expires == 'null');
-    int expires = Math.parseInt(info._expires == null ? '0' : info._expires);
-    int tenMinutesFromNow = new Date.now().milliseconds + (10 * 60 * 1000);
+    int expires = int.parse(info._expires == null ? '0' : info._expires);
+    int tenMinutesFromNow = new DateTime.now().millisecond + (10 * 60 * 1000);
     return expires < tenMinutesFromNow;
   }
 }
@@ -99,14 +98,14 @@ void finish(String hash) {
 
   // Call the appropriate callback with data.
   if (values['error'] != null && _lastCompleter != null) {
-    _lastCompleter.completeException(new AuthError(values['error'],
+    _lastCompleter.completeError(new AuthError(values['error'],
         values['error_description'], values['error_uri']));
   } else {
     // Store the token info for later retrieval.
     _TokenInfo info = new _TokenInfo();
     info._accessToken = values['access_token'];
     info._expires = values['expires'];
-    window.localStorage.$dom_setItem(_lastReqKey, info.asString());
+    window.localStorage[_lastReqKey] = info.asString();
 
     _lastCompleter.complete(values['access_token']);
   }
